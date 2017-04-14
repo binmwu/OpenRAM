@@ -442,3 +442,8 @@ class nand_2(design.design):
         self.Z_position = self.Z_position = self.output_position
         self.vdd_position = self.vdd_position
         self.gnd_position = self.gnd_position
+
+    def delay(self, slope, output_cap = 1):
+        delay = (4/3)*output_cap + 1
+        slope = 0.5* slope
+        return delay, slope

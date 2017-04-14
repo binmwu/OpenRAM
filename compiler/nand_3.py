@@ -106,6 +106,10 @@ class nand_3(design.design):
             + (drc["metal1_to_metal1"] - drc["well_enclosure_active"])
         self.width = self.width = self.well_width
 
+    def delay(self, slope, output_cap = 1):
+        delay = (5/3)*output_cap + 1
+        slope = 0.5 * slope
+        return delay, slope
     def add_rails(self):
         """ Add VDD and GND rails """
         rail_width = self.width

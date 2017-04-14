@@ -403,3 +403,10 @@ class pinv(design.design):
     def setup_layout_offsets(self):
         self.A_position = self.input_position
         self.Z_position = self.output_position
+
+    def delay(self , slope, output_cap = 1):
+        # does beta effect this?
+        size_to_mintx = self.nmos_width/drc["minwidth_tx"]
+        delay = output_cap/size_to_mintx + 1
+        slope = 0.1 * slope + 0.1 # this number is just test
+        return delay, slope

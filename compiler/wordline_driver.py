@@ -211,3 +211,11 @@ class wordline_driver(design.design):
             self.WL_positions.append(wl_offset)
             self.vdd_positions.append(vdd_offset)
             self.gnd_positions.append(gnd_offset)
+
+    def delay(self, slope, output_cap = 1):
+        nand_size = 2
+        inv_size =1
+        delay1, slope1 = self.inv.delay(slope = slope, output_cap = nand_size)
+        delay2, slope2 = self.NAND2.delay(slope = slope1, output_cap = inv_size)
+        delay3, slope3 = self.inv.delay(slope=slope2, output_cap = output_cap)
+        return delay1 + delay2 + delay3, slope3

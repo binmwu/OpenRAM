@@ -481,3 +481,9 @@ class nor_2(design.design):
                       offset=offset,
                       width=width,
                       height=self.nmos1.active_height)
+
+
+    def delay(self, slope, output_cap = 1):
+        delay = (5/3)*output_cap + 1
+        slope = 0.5* slope
+        return delay, slope
