@@ -30,10 +30,13 @@ def warning(str):
 
 
 def info(lev, str):
-    OPTS = globals.get_opts()
+    from globals import OPTS
     if (OPTS.debug_level >= lev):
         frm = inspect.stack()[1]
         mod = inspect.getmodule(frm[0])
-        print("[{0}]: {1}".format(frm[0].f_code.co_name,str))
-        # This sometimes gets a NoneType mod...
-        # print "[" , mod.__name__ , "]: ", str
+        #classname = frm.f_globals['__name__']
+        if mod.__name__ == None:
+            class_name=""
+        else:
+            class_name=mod.__name__
+        print("[{0}/{1}]: {2}".format(class_name,frm[0].f_code.co_name,str))

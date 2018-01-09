@@ -8,10 +8,9 @@ from testutils import header,isdiff
 import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
+from globals import OPTS
 import debug
-import calibre
-
-OPTS = globals.get_opts()
+import verify
 
 
 class lef_test(unittest.TestCase):
@@ -22,7 +21,6 @@ class lef_test(unittest.TestCase):
         OPTS.check_lvsdrc = False
 
         import sram
-        import lef
 
         debug.info(1, "Testing LEF for sample 2 bit, 16 words SRAM with 1 bank")
         s = sram.sram(word_size=2,
@@ -37,7 +35,7 @@ class lef_test(unittest.TestCase):
         gdsname = OPTS.openram_temp + gdsfile
         lefname = OPTS.openram_temp + leffile
         s.gds_write(gdsname)
-        lef.lef(gdsname,lefname,s)
+        s.lef_write(lefname)
 
         # let's diff the result with a golden model
         golden = "{0}/golden/{1}".format(os.path.dirname(os.path.realpath(__file__)),leffile)

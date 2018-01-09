@@ -10,18 +10,24 @@ class tri_gate(design.design):
     netlist should be available in the technology library.  
     """
 
-    pins = ["in", "en", "en_bar", "out", "gnd", "vdd"]
-    chars = utils.auto_measure_libcell(pins, "tri_gate", GDS["unit"], layer["boundary"])
+    pin_names = ["in", "en", "en_bar", "out", "gnd", "vdd"]
+    (width,height) = utils.get_libcell_size("tri_gate", GDS["unit"], layer["boundary"])
+    pin_map = utils.get_libcell_pins(pin_names, "tri_gate", GDS["unit"], layer["boundary"])
 
-    def __init__(self, name):
+    unique_id = 1
+    
+    def __init__(self, name=""):
+        if name=="":
+            name = "tri{0}".format(tri_gate.unique_id)
+            tri_gate.unique_id += 1
         design.design.__init__(self, name)
-        debug.info(2, "Create tri_gate object")
+        debug.info(2, "Create tri_gate")
 
+        self.width = tri_gate.width
+        self.height = tri_gate.height
+        self.pin_map = tri_gate.pin_map
 
-        self.width = tri_gate.chars["width"]
-        self.height = tri_gate.chars["height"]
-
-    def delay(self, slew, load=0.0):
+    def analytical_delay(self, slew, load=0.0):
         from tech import spice
         r = spice["min_tx_r"]
         c_para = spice["min_tx_drain_c"]

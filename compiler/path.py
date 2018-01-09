@@ -2,7 +2,22 @@ from tech import drc
 from tech import layer as techlayer
 import debug
 from vector import vector
+from utils import snap_to_grid
 
+def create_rectilinear_route(my_list):
+    """ Add intermediate nodes if it isn't rectilinear. Also skip
+        repeated nodes. Also, convert to vector if the aren't."""
+    pl = [snap_to_grid(x) for x in my_list]
+    
+    my_list = []
+    for index in range(len(pl) - 1):
+        if pl[index] != pl[index + 1]:
+            my_list.append(vector(pl[index]))
+        if (pl[index][0] != pl[index + 1][0]) and (pl[index][1] != pl[index + 1][1]):
+            my_list.append(vector(pl[index][0], pl[index + 1][1]))
+    my_list.append(vector(pl[-1]))
+    return my_list
+        
 class path():
     """
     Object metal path; given the layer type
@@ -26,23 +41,15 @@ class path():
 
 
     def create_layout(self):
-        self.create_rectilinear_route()
+        self.create_rectilinear()
         self.connect_corner()
         self.create_rectangles()
         # wires and paths should not be offset to (0,0)
 
-    def create_rectilinear_route(self):
+    def create_rectilinear(self):
         """ Add intermediate nodes if it isn't rectilinear. Also skip
         repeated nodes. Also, convert to vector if the aren't."""
-        pl = self.position_list
-
-        self.position_list = []
-        for index in range(len(pl) - 1):
-            if pl[index] != pl[index + 1]:
-                self.position_list.append(vector(pl[index]))
-            if (pl[index][0] != pl[index + 1][0]) and (pl[index][1] != pl[index + 1][1]):
-                self.position_list.append(vector(pl[index][0], pl[index + 1][1]))
-        self.position_list.append(vector(pl[-1]))
+        self.position_list = create_rectilinear_route(self.position_list)
 
     def connect_corner(self):
         """ Add a corner square at every corner of the path."""
@@ -74,7 +81,6 @@ class path():
         using the position list of the corners. """
         pl = self.position_list  # position list
         for index in range(len(pl) - 1):
-
             # if we have x motion
             if pl[index][0] != pl[index + 1][0]:
                 line_length = pl[index + 1][0] - pl[index][0]

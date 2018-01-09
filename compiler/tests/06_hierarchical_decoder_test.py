@@ -9,7 +9,7 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
+import verify
 
 OPTS = globals.OPTS
 
@@ -18,50 +18,34 @@ class hierarchical_decoder_test(unittest.TestCase):
 
     def runTest(self):
         globals.init_openram("config_20_{0}".format(OPTS.tech_name))
+        OPTS.check_lvsdrc = False
 
         import hierarchical_decoder
         import tech
 
-        debug.info(1, "Testing 4 row sample for hierarchical_decoder")
-        OPTS.check_lvsdrc = False
-        a = hierarchical_decoder.hierarchical_decoder(nand2_nmos_width=2 * tech.drc["minwidth_tx"],
-                                                      nand3_nmos_width=3 * tech.drc["minwidth_tx"],
-                                                      rows=4)
-        OPTS.check_lvsdrc = True
-        self.local_check(a)
+        # Doesn't require hierarchical decoder
+        # debug.info(1, "Testing 4 row sample for hierarchical_decoder")
+        # a = hierarchical_decoder.hierarchical_decoder(rows=4)
+        # self.local_check(a)
 
-        debug.info(1, "Testing 8 row sample for hierarchical_decoder")
-        OPTS.check_lvsdrc = False
-        a = hierarchical_decoder.hierarchical_decoder(nand2_nmos_width=2 * tech.drc["minwidth_tx"],
-                                                      nand3_nmos_width=3 * tech.drc["minwidth_tx"],
-                                                      rows=8)
-        OPTS.check_lvsdrc = True
-        self.local_check(a)
+        # Doesn't require hierarchical decoder
+        # debug.info(1, "Testing 8 row sample for hierarchical_decoder")
+        # a = hierarchical_decoder.hierarchical_decoder(rows=8)
+        # self.local_check(a)
 
         debug.info(1, "Testing 32 row sample for hierarchical_decoder")
-        OPTS.check_lvsdrc = False
-        a = hierarchical_decoder.hierarchical_decoder(nand2_nmos_width=2 * tech.drc["minwidth_tx"],
-                                                      nand3_nmos_width=3 * tech.drc["minwidth_tx"],
-                                                      rows=32)
-        OPTS.check_lvsdrc = True
+        a = hierarchical_decoder.hierarchical_decoder(rows=32)
         self.local_check(a)
 
         debug.info(1, "Testing 128 row sample for hierarchical_decoder")
-        OPTS.check_lvsdrc = False
-        a = hierarchical_decoder.hierarchical_decoder(nand2_nmos_width=2 * tech.drc["minwidth_tx"],
-                                                      nand3_nmos_width=3 * tech.drc["minwidth_tx"],
-                                                      rows=128)
-        OPTS.check_lvsdrc = True
+        a = hierarchical_decoder.hierarchical_decoder(rows=128)
         self.local_check(a)
 
         debug.info(1, "Testing 512 row sample for hierarchical_decoder")
-        OPTS.check_lvsdrc = False
-        a = hierarchical_decoder.hierarchical_decoder(nand2_nmos_width=2 * tech.drc["minwidth_tx"],
-                                                      nand3_nmos_width=3 * tech.drc["minwidth_tx"],
-                                                      rows=512)
-        OPTS.check_lvsdrc = True
+        a = hierarchical_decoder.hierarchical_decoder(rows=512)
         self.local_check(a)
 
+        OPTS.check_lvsdrc = True
         globals.end_openram()
         
     def local_check(self, a):
@@ -71,12 +55,17 @@ class hierarchical_decoder_test(unittest.TestCase):
         a.sp_write(tempspice)
         a.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(a.name, tempgds))
-        self.assertFalse(calibre.run_lvs(a.name, tempgds, tempspice))
+        self.assertFalse(verify.run_drc(a.name, tempgds))
+        self.assertFalse(verify.run_lvs(a.name, tempgds, tempspice))
 
         os.remove(tempspice)
         os.remove(tempgds)
 
+        # reset the static duplicate name checker for unit tests
+        import design
+        design.design.name_map=[]
+
+        
 # instantiate a copdsay of the class to actually run the test
 if __name__ == "__main__":
     (OPTS, args) = globals.parse_args()

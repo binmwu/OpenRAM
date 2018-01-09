@@ -9,7 +9,7 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
+import verify
 
 OPTS = globals.OPTS
 
@@ -24,12 +24,11 @@ class hierarchical_predecode2x4_test(unittest.TestCase):
         import hierarchical_predecode2x4 as pre
         import tech
 
-        debug.info(1, "Testing sample for hierarchy_decoder")
-        a = pre.hierarchical_predecode2x4(nmos_width=2 * tech.drc["minwidth_tx"],
-                                          cellname="test_pre2x4")
-        OPTS.check_lvsdrc = True
+        debug.info(1, "Testing sample for hierarchy_predecode2x4")
+        a = pre.hierarchical_predecode2x4()
         self.local_check(a)
 
+        OPTS.check_lvsdrc = True
         globals.end_openram()
         
     def local_check(self, a):
@@ -39,8 +38,8 @@ class hierarchical_predecode2x4_test(unittest.TestCase):
         a.sp_write(tempspice)
         a.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(a.name, tempgds))
-        self.assertFalse(calibre.run_lvs(a.name, tempgds, tempspice))
+        self.assertFalse(verify.run_drc(a.name, tempgds))
+        self.assertFalse(verify.run_lvs(a.name, tempgds, tempspice))
 
         os.remove(tempspice)
         os.remove(tempgds)

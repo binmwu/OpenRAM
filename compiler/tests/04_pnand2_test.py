@@ -1,6 +1,8 @@
 #!/usr/bin/env python2.7
 """
-Run a test on a delay chain
+Run regression tests on a parameterized nand 2.  This module doesn't
+generate a multi_finger 2-input nand gate.  It generates only a minimum
+size 2-input nand gate.
 """
 
 import unittest
@@ -9,42 +11,45 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
-import importlib
+import verify
+import sys
 
-OPTS = globals.get_opts()
+OPTS = globals.OPTS
 
-#@unittest.skip("SKIPPING 14_delay_chain_test")
+#@unittest.skip("SKIPPING 04_pnand2_test")
 
 
-class replica_bitline_test(unittest.TestCase):
+class pnand2_test(unittest.TestCase):
 
     def runTest(self):
         globals.init_openram("config_20_{0}".format(OPTS.tech_name))
         # we will manually run lvs/drc
         OPTS.check_lvsdrc = False
 
-        import replica_bitline
+        import pnand2
+        import tech
 
-        debug.info(2, "Testing RBL")
-        a = replica_bitline.replica_bitline("chain", 13)
+        debug.info(2, "Checking 2-input nand gate")
+        tx = pnand2.pnand2(size=1)
+        self.local_check(tx)
+
         OPTS.check_lvsdrc = True
-        self.local_check(a)
-
         globals.end_openram()
         
-    def local_check(self, a):
+
+    def local_check(self, tx):
         tempspice = OPTS.openram_temp + "temp.sp"
         tempgds = OPTS.openram_temp + "temp.gds"
 
-        a.sp_write(tempspice)
-        a.gds_write(tempgds)
+        tx.sp_write(tempspice)
+        tx.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(a.name, tempgds))
-        self.assertFalse(calibre.run_lvs(a.name, tempgds, tempspice))
+        self.assertFalse(verify.run_drc(tx.name, tempgds))
+        self.assertFalse(verify.run_lvs(tx.name, tempgds, tempspice))
 
         os.remove(tempspice)
         os.remove(tempgds)
+
 
 # instantiate a copy of the class to actually run the test
 if __name__ == "__main__":

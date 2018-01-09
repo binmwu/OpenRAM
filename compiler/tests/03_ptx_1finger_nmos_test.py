@@ -7,7 +7,7 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
+import verify
 
 OPTS = globals.OPTS
 
@@ -28,10 +28,9 @@ class ptx_test(unittest.TestCase):
         fet = ptx.ptx(width=tech.drc["minwidth_tx"],
                       mults=1,
                       tx_type="nmos")
-        # return it back to it's normal state
-        OPTS.check_lvsdrc = True
-
         self.local_check(fet)
+
+        OPTS.check_lvsdrc = True
         globals.end_openram()
 
 
@@ -145,10 +144,9 @@ class ptx_test(unittest.TestCase):
         fet.sp_write(tempspice)
         fet.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(fet.name, tempgds))
+        self.assertFalse(verify.run_drc(fet.name, tempgds))
 
-        os.remove(tempspice)
-        os.remove(tempgds)
+        globals.end_openram()
 
 # instantiate a copy of the class to actually run the test
 if __name__ == "__main__":

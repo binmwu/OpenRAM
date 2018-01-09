@@ -8,10 +8,9 @@ from testutils import header,isdiff
 import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
+from globals import OPTS
 import debug
-import calibre
-
-OPTS = globals.get_opts()
+import verify
 
 
 class verilog_test(unittest.TestCase):
@@ -22,7 +21,6 @@ class verilog_test(unittest.TestCase):
         OPTS.check_lvsdrc = False
 
         import sram
-        import verilog
 
         debug.info(1, "Testing Verilog for sample 2 bit, 16 words SRAM with 1 bank")
         s = sram.sram(word_size=2,
@@ -34,7 +32,7 @@ class verilog_test(unittest.TestCase):
 
         vfile = s.name + ".v"
         vname = OPTS.openram_temp + vfile
-        verilog.verilog(vname,s)
+        s.verilog_write(vname)
 
 
         # let's diff the result with a golden model

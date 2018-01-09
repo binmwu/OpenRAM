@@ -12,7 +12,7 @@ import re
 import importlib
 
 # Current version of OpenRAM.
-VERSION = "1.0"
+VERSION = "1.01"
 
 USAGE = "Usage: openram.py [options] <config file>\nUse -h for help.\n"
 
@@ -25,15 +25,8 @@ minor_python_version = sys.version_info.minor
 if not (major_python_version == 2 and minor_python_version >= 7):
     debug.error("Python 2.7 is required.",-1)
 
-def is_exe(fpath):
-    return os.path.exists(fpath) and os.access(fpath, os.X_OK)
-
-# parse the optional arguments
-# this only does the optional arguments
-
-
 def parse_args():
-    """Parse the arguments and initialize openram"""
+    """ Parse the optional arguments for OpenRAM """
 
     global OPTS
 
@@ -52,20 +45,19 @@ def parse_args():
                              help="Increase the verbosity level"),
         optparse.make_option("-t", "--tech", dest="tech_name",
                              help="Technology name"),
-        optparse.make_option("-s", "--spiceversion", dest="spice_version",
-                             help="Spice simulator name"),
-        # TODO: Why is this -f?
-        optparse.make_option("-f", "--trim_noncritical", action="store_true", dest="trim_noncritical",
-                             help="Trim noncritical memory cells during simulation"),
-        optparse.make_option("-a", "--analytical", action="store_true", dest="analytical_delay",
-                             help="Use analytical model to calculate delay")
+        optparse.make_option("-s", "--spice", dest="spice_name",
+                             help="Spice simulator executable name"),
+        optparse.make_option("-r", "--remove_netlist_trimming", action="store_false", dest="trim_netlist",
+                             help="Disable removal of noncritical memory cells during characterization"),
+        optparse.make_option("-c", "--characterize", action="store_false", dest="analytical_delay",
+                             help="Perform characterization to calculate delays (default is analytical models)")
+        # -h --help is implicit.
     }
-# -h --help is implicit.
 
     parser = optparse.OptionParser(option_list=option_list,
                                    description="Compile and/or characterize an SRAM.",
                                    usage=USAGE,
-                                   version="sramc v" + VERSION)
+                                   version="OpenRAM v" + VERSION)
 
     (options, args) = parser.parse_args(values=OPTS)
 
@@ -74,12 +66,7 @@ def parse_args():
     if OPTS.tech_name == "":
         OPTS.tech_name = "freepdk45"
     
-
     return (options, args)
-
-
-def get_opts():
-    return(OPTS)
 
 def print_banner():
     """ Conditionally print the banner to stdout """
@@ -112,23 +99,50 @@ def init_openram(config_file):
 
     import_tech()
 
-    set_spice()
+def get_tool(tool_type, preferences):
+    """
+    Find which tool we have from a list of preferences and return the
+    one selected and its full path.
+    """
+    debug.info(2,"Finding {} tool...".format(tool_type))
+    global OPTS
 
-    set_calibre()
+    for name in preferences:
+        exe_name = find_exe(name)
+        if exe_name != None:
+            debug.info(1, "Using {0}: {1}".format(tool_type,exe_name))
+            return(name,exe_name)
+        else:
+            debug.info(1, "Could not find {0}, trying next {1} tool.".format(name,tool_type))
+    else:
+        return(None,"")
 
+    
 
 def read_config(config_file):
-    global OPTS
-    
-    OPTS.config_file = config_file
-    OPTS.config_file = re.sub(r'\.py$', "", OPTS.config_file)
-
-    # dynamically import the configuration file of which modules to use
-    debug.info(1, "Configuration file is " + OPTS.config_file + ".py")
+    """ 
+    Read the configuration file that defines a few parameters. The
+    config file is just a Python file that defines some config
+    options. 
+    """
+    # Create a full path relative to current dir unless it is already an abs path
+    if not os.path.isabs(config_file):
+        config_file = os.getcwd() + "/" +  config_file
+    # Make it a python file if the base name was only given
+    config_file = re.sub(r'\.py$', "", config_file)
+    # Expand the user if it is used
+    config_file = os.path.expanduser(config_file)
+    # Add the path to the system path so we can import things in the other directory
+    dir_name = os.path.dirname(config_file)
+    file_name = os.path.basename(config_file)
+    # Prepend the path to avoid if we are using the example config
+    sys.path.insert(0,dir_name)
+    # Import the configuration file of which modules to use
+    debug.info(1, "Configuration file is " + config_file + ".py")
     try:
-        OPTS.config = importlib.import_module(OPTS.config_file)
+        OPTS.config = importlib.import_module(file_name) 
     except:
-        debug.error("Unable to read configuration file: {0}".format(OPTS.config_file+".py. Did you specify the technology?"),2)
+        debug.error("Unable to read configuration file: {0}".format(config_file),2)
 
     # This path must be setup after the config file.
     try:
@@ -153,30 +167,7 @@ def read_config(config_file):
         debug.error("Unable to make output directory.",-1)
     
         
-
-def set_calibre():
-    debug.info(2,"Finding calibre...")
-    global OPTS
-
-    # check if calibre is installed, if so, we should be running LVS/DRC on
-    # everything.
-    if not OPTS.check_lvsdrc:
-        # over-ride the check LVS/DRC option
-        debug.info(0,"Over-riding LVS/DRC. Not performing inline LVS/DRC.")
-    else:
-        # see if calibre is in the path (extend to other tools later)
-        for path in os.environ["PATH"].split(os.pathsep):
-            OPTS.calibre_exe = os.path.join(path, "calibre")
-            # if it is found, do inline LVS/DRC
-            if is_exe(OPTS.calibre_exe):
-                OPTS.check_lvsdrc = True
-                debug.info(1, "Using calibre: " + OPTS.calibre_exe)
-                break
-        else:
-            # otherwise, give warning and procede
-            debug.warning("Calibre not found. Not performing inline LVS/DRC.")
-            OPTS.check_lvsdrc = False
-
+        
 def end_openram():
     """ Clean up openram for a proper exit """
     cleanup_paths()
@@ -188,7 +179,9 @@ def end_openram():
     
     
 def cleanup_paths():
-    # we should clean up this temp directory after execution...
+    """
+    We should clean up the temp directory after execution.
+    """
     if os.path.exists(OPTS.openram_temp):
         shutil.rmtree(OPTS.openram_temp, ignore_errors=True)
             
@@ -210,9 +203,6 @@ def setup_paths():
     debug.check(os.path.isdir(OPENRAM_HOME+"/tests"),
                 "$OPENRAM_HOME/tests does not exist: {0}".format(OPENRAM_HOME+"/tests"))
     sys.path.append("{0}/tests".format(OPENRAM_HOME))
-    debug.check(os.path.isdir(OPENRAM_HOME+"/characterizer"),
-                "$OPENRAM_HOME/characterizer does not exist: {0}".format(OPENRAM_HOME+"/characterizer"))
-    sys.path.append("{0}/characterizer".format(OPENRAM_HOME))
     debug.check(os.path.isdir(OPENRAM_HOME+"/router"),
                 "$OPENRAM_HOME/router does not exist: {0}".format(OPENRAM_HOME+"/router"))
     sys.path.append("{0}/router".format(OPENRAM_HOME))
@@ -231,56 +221,19 @@ def setup_paths():
             os.chmod(OPTS.openram_temp, 0o750)
 
 
-    
+def is_exe(fpath):
+    """ Return true if the given is an executable file that exists. """
+    return os.path.exists(fpath) and os.access(fpath, os.X_OK)
 
-
-def set_spice():
-    debug.info(2,"Finding spice...")
-    global OPTS
-
-    OPTS.spice_exe = ""
-    
+def find_exe(check_exe):
+    """ Check if the binary exists in any path dir and return the full path. """
     # Check if the preferred spice option exists in the path
     for path in os.environ["PATH"].split(os.pathsep):
-        spice_exe = os.path.join(path, OPTS.spice_version)
+        exe = os.path.join(path, check_exe)
         # if it is found, then break and use first version
-        if is_exe(spice_exe):
-            debug.info(1, "Using spice: " + spice_exe)
-            OPTS.spice_exe = spice_exe
-            break
-        
-    if not OPTS.force_spice and OPTS.spice_exe == "":
-        # if we didn't find the preferred version, try the other version and warn
-        prev_version=OPTS.spice_version
-        if OPTS.spice_version == "hspice":
-            OPTS.spice_version = "ngspice"
-        else:
-            OPTS.spice_version = "hspice"
-        debug.warning("Unable to find {0} so trying {1}".format(prev_version,OPTS.spice_version))
-
-        for path in os.environ["PATH"].split(os.pathsep):
-            spice_exe = os.path.join(path, OPTS.spice_version)
-            # if it is found, then break and use first version
-            if is_exe(spice_exe):
-                found_spice = True
-                debug.info(1, "Using spice: " + spice_exe)
-                OPTS.spice_exe = spice_exe
-                break
-
-    # set the input dir for spice files if using ngspice 
-    if OPTS.spice_version == "ngspice":
-        os.environ["NGSPICE_INPUT_DIR"] = "{0}".format(OPTS.openram_temp)
-
-    if OPTS.spice_exe == "":
-        # otherwise, give warning and procede
-        if OPTS.force_spice:
-            debug.error("{0} not found. Unable to perform characterization.".format(OPTS.spice_version),1)
-        else:
-            debug.error("Neither hspice/ngspice not found. Unable to perform characterization.",1)
-
-    if OPTS.analytical_delay:
-        debug.warning("Using analytical delay models instead of characterization.")
-
+        if is_exe(exe):
+            return exe
+    return None
         
 # imports correct technology directories for testing
 def import_tech():

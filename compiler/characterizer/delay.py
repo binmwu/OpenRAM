@@ -1,14 +1,12 @@
 import sys
 import re
-import globals
 import debug
 import tech
 import math
 import stimuli
 import charutils as ch
 import utils
-
-OPTS = globals.get_opts()
+from globals import OPTS
 
 class delay():
     """
@@ -22,10 +20,11 @@ class delay():
         self.word_size = sram.word_size
         self.addr_size = sram.addr_size
         self.sram_sp_file = spfile
-        
+
         self.vdd = tech.spice["supply_voltage"]
         self.gnd = tech.spice["gnd_voltage"]
 
+        
     def check_arguments(self):
         """Checks if arguments given for write_stimulus() meets requirements"""
         try:
@@ -73,7 +72,7 @@ class delay():
 
         self.sf.write("* SRAM output loads\n")
         for i in range(self.word_size):
-            self.sf.write("CD{0} D[{0}] 0 {1}f\n".format(i,load))
+            self.sf.write("CD{0} d[{0}] 0 {1}f\n".format(i,load))
         
         # add access transistors for data-bus
         self.sf.write("* Transmission Gates for data-bus and control signals\n")
@@ -85,12 +84,12 @@ class delay():
             if i == self.probe_data:
                 stimuli.gen_data(stim_file=self.sf,
                                  clk_times=self.cycle_times,
-                                 sig_name="DATA[{0}]".format(i),
+                                 sig_name="data[{0}]".format(i),
                                  period=period,
                                  slew=slew)
             else:
                 stimuli.gen_constant(stim_file=self.sf,
-                                     sig_name="D[{0}]".format(i),
+                                     sig_name="d[{0}]".format(i),
                                      v_val=self.gnd)
 
         stimuli.gen_addr(self.sf,
@@ -127,7 +126,7 @@ class delay():
         self.sf.write("* Measure statements for delay and power\n")
 
         trig_name = "clk"
-        targ_name = "{0}".format("D[{0}]".format(self.probe_data))
+        targ_name = "{0}".format("d[{0}]".format(self.probe_data))
         trig_val = targ_val = 0.5 * self.vdd
         # add measure statments for delay0
         # delay the target to measure after the negetive edge
@@ -326,6 +325,7 @@ class delay():
         self.probe_address = probe_address
         self.probe_data = probe_data
 
+
     def analyze(self,probe_address, probe_data, slews, loads):
         """main function to calculate the min period for a low_to_high
         transistion and a high_to_low transistion returns a dictionary
@@ -335,6 +335,17 @@ class delay():
         
         self.set_probe(probe_address, probe_data)
 
+        # This is for debugging a full simulation
+        # debug.info(0,"Debug simulation running...")
+        # target_period=50.0
+        # feasible_delay1=0.059083183
+        # feasible_delay0=0.17953789
+        # load=1.6728
+        # slew=0.04
+        # self.try_period(target_period, load, slew, feasible_delay1, feasible_delay0)
+        # sys.exit(1)
+
+        
         (feasible_period, feasible_delay1, feasible_delay0) = self.find_feasible_period(max(loads), max(slews))
         debug.check(feasible_delay1>0,"Negative delay may not be possible")
         debug.check(feasible_delay0>0,"Negative delay may not be possible")
@@ -362,7 +373,7 @@ class delay():
         # finds the minimum period without degrading the delays by X%
         min_period = self.find_min_period(feasible_period, max(loads), max(slews), feasible_delay1, feasible_delay0)
         debug.check(type(min_period)==float,"Couldn't find minimum period.")
-        debug.info(1, "Min Period: {0}n with a delay of {1}".format(min_period, feasible_delay1))
+        debug.info(1, "Min Period: {0}n with a delay of {1} / {2}".format(min_period, feasible_delay1, feasible_delay0))
 
 
         data = {"min_period": ch.round_time(min_period), 
@@ -423,4 +434,32 @@ class delay():
         self.cycle_times.append(t_current)
         t_current += period
 
+
+    def analytical_model(self,sram, slews, loads):
+        """ Just return the analytical model results for the SRAM. 
+        """
+        LH_delay = []
+        HL_delay = []
+        LH_slew = []
+        HL_slew = []
+        for slew in slews:
+            for load in loads:
+                bank_delay = sram.analytical_delay(slew,load)
+                # Convert from ps to ns
+                LH_delay.append(bank_delay.delay/1e3)
+                HL_delay.append(bank_delay.delay/1e3)
+                LH_slew.append(bank_delay.slew/1e3)
+                HL_slew.append(bank_delay.slew/1e3)
+        
+        data = {"min_period": 0, 
+                "delay1": LH_delay,
+                "delay0": HL_delay,
+                "slew1": LH_slew,
+                "slew0": HL_slew,
+                "read0_power": 0,
+                "read1_power": 0,
+                "write0_power": 0,
+                "write1_power": 0
+                }
+        return data
 

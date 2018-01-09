@@ -1,11 +1,10 @@
 import hierarchy_layout
 import hierarchy_spice
 import globals
-import calibre
+import verify
 import debug
 import os
-
-OPTS = globals.get_opts()
+from globals import OPTS
 
 
 class design(hierarchy_spice.spice, hierarchy_layout.layout):
@@ -23,6 +22,8 @@ class design(hierarchy_spice.spice, hierarchy_layout.layout):
         self.name = name
         hierarchy_layout.layout.__init__(self, name)
         hierarchy_spice.spice.__init__(self, name)
+
+        self.setup_drc_constants()
         
         # Check if the name already exists, if so, give an error
         # because each reference must be a unique name.
@@ -37,6 +38,18 @@ class design(hierarchy_spice.spice, hierarchy_layout.layout):
         else:
             debug.error("Duplicate layout reference name {0} of class {1}. GDS2 requires names be unique.".format(name,self.__class__),-1)
         
+    def setup_drc_constants(self):
+        """ These are some DRC constants used in many places in the compiler."""
+        from tech import drc
+        self.poly_width = drc["minwidth_poly"]
+        self.poly_space = drc["poly_to_poly"]        
+        self.m1_width = drc["minwidth_metal1"]
+        self.m1_space = drc["metal1_to_metal1"]        
+        self.m2_width = drc["minwidth_metal2"]
+        self.m2_space = drc["metal2_to_metal2"]        
+        self.m3_width = drc["minwidth_metal3"]
+        self.m3_space = drc["metal3_to_metal3"]
+
     def get_layout_pins(self,inst):
         """ Return a map of pin locations of the instance offset """
         # find the instance
@@ -56,8 +69,8 @@ class design(hierarchy_spice.spice, hierarchy_layout.layout):
             tempgds = OPTS.openram_temp + "/temp.gds"
             self.sp_write(tempspice)
             self.gds_write(tempgds)
-            debug.check(calibre.run_drc(self.name, tempgds) == 0,"DRC failed for {0}".format(self.name))
-            debug.check(calibre.run_lvs(self.name, tempgds, tempspice) == 0,"LVS failed for {0}".format(self.name))
+            debug.check(verify.run_drc(self.name, tempgds) == 0,"DRC failed for {0}".format(self.name))
+            debug.check(verify.run_lvs(self.name, tempgds, tempspice) == 0,"LVS failed for {0}".format(self.name))
             os.remove(tempspice)
             os.remove(tempgds)
 
@@ -66,7 +79,7 @@ class design(hierarchy_spice.spice, hierarchy_layout.layout):
         if OPTS.check_lvsdrc:
             tempgds = OPTS.openram_temp + "/temp.gds"
             self.gds_write(tempgds)
-            debug.check(calibre.run_drc(self.name, tempgds) == 0,"DRC failed for {0}".format(self.name))
+            debug.check(verify.run_drc(self.name, tempgds) == 0,"DRC failed for {0}".format(self.name))
             os.remove(tempgds)
 
     def LVS(self):
@@ -76,7 +89,7 @@ class design(hierarchy_spice.spice, hierarchy_layout.layout):
             tempgds = OPTS.openram_temp + "/temp.gds"
             self.sp_write(tempspice)
             self.gds_write(tempgds)
-            debug.check(calibre.run_lvs(self.name, tempgds, tempspice) == 0,"LVS failed for {0}".format(self.name))
+            debug.check(verify.run_lvs(self.name, tempgds, tempspice) == 0,"LVS failed for {0}".format(self.name))
             os.remove(tempspice)
             os.remove(tempgds)
 

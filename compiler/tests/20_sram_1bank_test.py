@@ -8,10 +8,9 @@ from testutils import header
 import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
+from globals import OPTS
 import debug
-import calibre
-
-OPTS = globals.get_opts()
+import verify
 
 #@unittest.skip("SKIPPING 20_sram_test")
 
@@ -25,11 +24,23 @@ class sram_1bank_test(unittest.TestCase):
 
         import sram
 
-        debug.info(1, "Testing sample 8bit, 64word SRAM, 1 bank")
-        a = sram.sram(word_size=8, num_words=128, num_banks=1, name="test_sram1")
-        OPTS.check_lvsdrc = True
+        debug.info(1, "Single bank, no column mux with control logic")
+        a = sram.sram(word_size=4, num_words=16, num_banks=1, name="sram1")
         self.local_check(a)
 
+        debug.info(1, "Single bank two way column mux with control logic")
+        a = sram.sram(word_size=4, num_words=32, num_banks=1, name="sram2")
+        self.local_check(a)
+
+        debug.info(1, "Single bank, four way column mux with control logic")
+        a = sram.sram(word_size=4, num_words=64, num_banks=1, name="sram3")
+        self.local_check(a)
+
+        # debug.info(1, "Single bank, eight way column mux with control logic")
+        # a = sram.sram(word_size=2, num_words=128, num_banks=1, name="sram4")
+        # self.local_check(a)
+        
+        OPTS.check_lvsdrc = True
         globals.end_openram()
         
     def local_check(self, a):
@@ -39,9 +50,9 @@ class sram_1bank_test(unittest.TestCase):
         a.sp_write(tempspice)
         a.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(a.name, tempgds))
-        self.assertFalse(calibre.run_lvs(a.name, tempgds, tempspice))
-        #self.assertFalse(calibre.run_pex(a.name, tempgds, tempspice, output=OPTS.openram_temp+"temp_pex.sp"))
+        self.assertFalse(verify.run_drc(a.name, tempgds))
+        self.assertFalse(verify.run_lvs(a.name, tempgds, tempspice))
+        #self.assertFalse(verify.run_pex(a.name, tempgds, tempspice, output=OPTS.openram_temp+"temp_pex.sp"))
 
         os.remove(tempspice)
         os.remove(tempgds)

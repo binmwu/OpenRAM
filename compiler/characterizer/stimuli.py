@@ -4,15 +4,13 @@ simulation.  There are various functions that can be be used to
 generate stimulus for other simulations as well.
 """
 
-import globals
 import tech
 import debug
 import subprocess
 import os
 import sys
 import numpy as np
-
-OPTS = globals.get_opts()
+from globals import OPTS
 
 vdd_voltage = tech.spice["supply_voltage"]
 gnd_voltage = tech.spice["gnd_voltage"]
@@ -168,7 +166,7 @@ def gen_addr(stim_file, clk_times, addr, period, slew):
     
     for i in range(len(addr)):
         sig_name = "A[{0}]".format(i)
-        if addr[i]==1:
+        if addr[i]=="1":
             gen_pwl(stim_file, sig_name, clk_times, ones_values, period, slew, 0.05)
         else:
             gen_pwl(stim_file, sig_name, clk_times, zero_values, period, slew, 0.05)
@@ -181,13 +179,13 @@ def gen_csb(stim_file, clk_times, period, slew):
     """ Generates the PWL CSb signal"""
     # values for NOP, W1, W0, W1, R0, W1, W0, R1, NOP
     values = [1, 0, 0, 0, 0, 0, 0, 0, 1]
-    gen_pwl(stim_file, "CSb", clk_times, values, period, slew, 0.05)
+    gen_pwl(stim_file, "csb", clk_times, values, period, slew, 0.05)
 
 def gen_web(stim_file, clk_times, period, slew):
     """ Generates the PWL WEb signal"""
     # values for NOP, W1, W0, W1, R0, W1, W0, R1, NOP
     values = [1, 0, 0, 0, 1, 0, 0, 1, 1]
-    gen_pwl(stim_file, "WEb", clk_times, values, period, slew, 0.05)
+    gen_pwl(stim_file, "web", clk_times, values, period, slew, 0.05)
     
     values = [1, 0, 0, 0, 1, 0, 0, 1, 1]
     gen_pwl(stim_file, "acc_en", clk_times, values, period, slew, 0)
@@ -198,7 +196,7 @@ def gen_oeb(stim_file, clk_times, period, slew):
     """ Generates the PWL WEb signal"""
     # values for NOP, W1, W0, W1, R0, W1, W0, R1, NOP
     values = [1, 1, 1, 1, 0, 1, 1, 0, 1]
-    gen_pwl(stim_file, "OEb", clk_times, values, period, slew, 0.05)
+    gen_pwl(stim_file, "oeb", clk_times, values, period, slew, 0.05)
 
 
 
@@ -235,7 +233,7 @@ def gen_meas_delay(stim_file, meas_name, trig_name, targ_name, trig_val, targ_va
 def gen_meas_power(stim_file, meas_name, t_initial, t_final):
     """Creates the .meas statement for the measurement of avg power"""
     # power mea cmd is different in different spice:
-    if OPTS.spice_version == "hspice":
+    if OPTS.spice_name == "hspice":
         power_exp = "power"
     else:
         power_exp = "par('(-1*v(" + str(vdd_name) + ")*I(v" + str(vdd_name) + "))')"
@@ -250,10 +248,16 @@ def write_control(stim_file, end_time):
     stim_file.write(".TRAN 5p {0}n UIC\n".format(end_time))
     stim_file.write(".OPTIONS POST=1 RUNLVL=4 PROBE\n")
     # create plots for all signals
-    stim_file.write("* probe is used for hspice\n")    
-    stim_file.write("*.probe V(*)\n")
-    stim_file.write("* plot is used for ngspice interactive mode \n")    
-    stim_file.write("*.plot V(*)\n")
+    stim_file.write("* probe is used for hspice/xa, while plot is used in ngspice\n")
+    if OPTS.debug_level>0:
+        if OPTS.spice_name in ["hspice","xa"]:
+            stim_file.write(".probe V(*)\n")
+        else:
+            stim_file.write(".plot V(*)\n")
+    else:
+        stim_file.write("*.probe V(*)\n")
+        stim_file.write("*.plot V(*)\n")
+
     # end the stimulus file
     stim_file.write(".end\n\n")
 
@@ -276,17 +280,30 @@ def write_supply(stim_file):
 def run_sim():
     """Run hspice in batch mode and output rawfile to parse."""
     temp_stim = "{0}stim.sp".format(OPTS.openram_temp)
+    import datetime
+    start_time = datetime.datetime.now()
     
-    if OPTS.spice_version == "hspice":
+    from characterizer import spice_exe
+    if OPTS.spice_name == "xa":
+        # Output the xa configurations here. FIXME: Move this to write it once.
+        xa_cfg = open("{}xa.cfg".format(OPTS.openram_temp), "w")
+        xa_cfg.write("set_sim_level -level 7\n")
+        xa_cfg.write("set_powernet_level 7 -node vdd\n")
+        xa_cfg.close()
+        cmd = "{0} {1} -c {2}xa.cfg -o {2}xa -mt 20".format(spice_exe,
+                                               temp_stim,
+                                               OPTS.openram_temp)
+        valid_retcode=0
+    elif OPTS.spice_name == "hspice":
         # TODO: Should make multithreading parameter a configuration option
-        cmd = "{0} -mt 2 -i {1} -o {2}timing".format(OPTS.spice_exe,
-                                                                     temp_stim,
-                                                                     OPTS.openram_temp)
+        cmd = "{0} -mt 2 -i {1} -o {2}timing".format(spice_exe,
+                                                     temp_stim,
+                                                     OPTS.openram_temp)
         valid_retcode=0
     else:
-        cmd = "{0} -b -o {2}timing.lis {1}".format(OPTS.spice_exe,
-                                                        temp_stim,
-                                                        OPTS.openram_temp)
+        cmd = "{0} -b -o {2}timing.lis {1}".format(spice_exe,
+                                                   temp_stim,
+                                                   OPTS.openram_temp)
         # for some reason, ngspice-25 returns 1 when it only has acceptable warnings
         valid_retcode=1
 
@@ -302,5 +319,9 @@ def run_sim():
     
     if (retcode > valid_retcode):
         debug.error("Spice simulation error: " + cmd, -1)
+    else:
+        end_time = datetime.datetime.now()
+        delta_time = round((end_time-start_time).total_seconds(),1)
+        debug.info(2,"*** Spice: {} seconds".format(delta_time))
 
     

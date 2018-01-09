@@ -7,7 +7,7 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
+import verify
 
 OPTS = globals.OPTS
 
@@ -27,11 +27,12 @@ class ptx_test(unittest.TestCase):
         debug.info(2, "Checking three fingers NMOS")
         fet = ptx.ptx(width=tech.drc["minwidth_tx"],
                       mults=3,
-                      tx_type="nmos")
-        # return it back to it's normal state
-        OPTS.check_lvsdrc = True
-
+                      tx_type="nmos",
+                      connect_active=True,
+                      connect_poly=True)
         self.local_check(fet)
+
+        OPTS.check_lvsdrc = True
         globals.end_openram()
 
     def add_mods(self, fet):
@@ -144,7 +145,7 @@ class ptx_test(unittest.TestCase):
         fet.sp_write(tempspice)
         fet.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(fet.name, tempgds))
+        self.assertFalse(verify.run_drc(fet.name, tempgds))
 
         os.remove(tempspice)
         os.remove(tempgds)

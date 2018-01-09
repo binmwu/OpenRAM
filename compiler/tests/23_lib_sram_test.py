@@ -8,11 +8,9 @@ from testutils import header,isapproxdiff
 import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
+from globals import OPTS
 import debug
-import calibre
-
-OPTS = globals.get_opts()
-
+import verify
 
 class lib_test(unittest.TestCase):
 
@@ -20,9 +18,13 @@ class lib_test(unittest.TestCase):
         globals.init_openram("config_20_{0}".format(OPTS.tech_name))
         # we will manually run lvs/drc
         OPTS.check_lvsdrc = False
+        OPTS.analytical_delay = False
+        OPTS.trim_netlist = False
+        import characterizer
+        reload(characterizer)
+        from characterizer import lib
 
         import sram
-        import lib
 
         debug.info(1, "Testing timing for sample 2 bit, 16 words SRAM with 1 bank")
         s = sram.sram(word_size=2,
@@ -40,13 +42,13 @@ class lib_test(unittest.TestCase):
         
         # let's diff the result with a golden model
         golden = "{0}/golden/{1}".format(os.path.dirname(os.path.realpath(__file__)),filename)
-        # Randomly decided 10% difference between spice simulators is ok.
-        self.assertEqual(isapproxdiff(libname,golden,0.10),True)
+        self.assertEqual(isapproxdiff(libname,golden,0.15),True)
 
-        os.system("rm {0}".format(libname))
-
+        OPTS.analytical_delay = True
+        OPTS.trim_netlist = True
+        reload(characterizer)
         globals.end_openram()
-
+        
 # instantiate a copdsay of the class to actually run the test
 if __name__ == "__main__":
     (OPTS, args) = globals.parse_args()

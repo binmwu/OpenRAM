@@ -9,7 +9,7 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
+import verify
 
 OPTS = globals.OPTS
 
@@ -25,12 +25,11 @@ class array_test(unittest.TestCase):
 
         import bitcell_array
 
-        debug.info(2, "Testing 3x3 array for 6t_cell")
-        a = bitcell_array.bitcell_array(name="bitcell_array", cols=3, rows=3)
+        debug.info(2, "Testing 4x4 array for 6t_cell")
+        a = bitcell_array.bitcell_array(name="bitcell_array", cols=4, rows=4)
+        self.local_check(a)
 
         OPTS.check_lvsdrc = True
-
-        self.local_check(a)
         globals.end_openram()
 
     def local_check(self, a):
@@ -41,8 +40,8 @@ class array_test(unittest.TestCase):
         a.sp_write(tempspice)
         a.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(a.name, tempgds))
-        self.assertFalse(calibre.run_lvs(a.name, tempgds, tempspice))
+        self.assertFalse(verify.run_drc(a.name, tempgds))
+        self.assertFalse(verify.run_lvs(a.name, tempgds, tempspice))
 
         os.remove(tempspice)
         os.remove(tempgds)

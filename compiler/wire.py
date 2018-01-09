@@ -25,7 +25,7 @@ class wire(path):
 
     def create_layout(self):
         self.setup_layers()
-        self.create_rectilinear_route()
+        self.create_rectilinear()
         self.create_vias()
         self.create_rectangles()
         # wires and paths should not be offset to (0,0)
@@ -41,10 +41,8 @@ class wire(path):
         self.horiz_layer_width = drc["minwidth_{0}".format(horiz_layer)]
         via_connect = contact(self.layer_stack,
                               (1, 1))
-        self.node_to_node = [drc["minwidth_" + str(self.horiz_layer_name)] \
-                                         + via_connect.width,
-                                     drc["minwidth_" + str(self.horiz_layer_name)] \
-                                         + via_connect.height]
+        self.node_to_node = [drc["minwidth_" + str(self.horiz_layer_name)] + via_connect.width,
+                             drc["minwidth_" + str(self.horiz_layer_name)] + via_connect.height]
 
     # create a 1x1 contact
     def create_vias(self):

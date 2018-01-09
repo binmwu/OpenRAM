@@ -1,38 +1,36 @@
 #!/usr/bin/env python2.7
 """
-Run regresion tests on a parameterized nor_2
-This module doesn't generate multi_finger 2_input nor gate
-It generate only the minimum size 2_input nor gate that is nmos_width=2*tech.drc[minwidth_tx]
+Run regresion tests on a parameterized inverter
 """
+
 import unittest
 from testutils import header
 import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
-import sys
+import verify
 
 OPTS = globals.OPTS
 
-#@unittest.skip("SKIPPING 04_nor_2_test")
+#@unittest.skip("SKIPPING 04_pinv_test")
 
 
-class nor_2_test(unittest.TestCase):
+class pinv_test(unittest.TestCase):
 
     def runTest(self):
         globals.init_openram("config_20_{0}".format(OPTS.tech_name))
-        # we will manually run lvs/drc
         OPTS.check_lvsdrc = False
 
-        import nor_2
+        import pinv
         import tech
 
-        debug.info(2, "Checking 2-input nor gate")
-        tx = nor_2.nor_2(nmos_width=2 * tech.drc["minwidth_tx"])
-        OPTS.check_lvsdrc = True
+        debug.info(2, "Checking 10x inverter")
+        tx = pinv.pinv(size=8)
         self.local_check(tx)
-        globals.end_openram()
+
+        OPTS.check_lvsdrc = True
+        globals.end_openram()        
 
     def local_check(self, tx):
         tempspice = OPTS.openram_temp + "temp.sp"
@@ -41,11 +39,17 @@ class nor_2_test(unittest.TestCase):
         tx.sp_write(tempspice)
         tx.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(tx.name, tempgds))
-        self.assertFalse(calibre.run_lvs(tx.name, tempgds, tempspice))
-        
+        self.assertFalse(verify.run_drc(tx.name, tempgds))
+        self.assertFalse(verify.run_lvs(tx.name, tempgds, tempspice))
+
         os.remove(tempspice)
         os.remove(tempgds)
+
+        # reset the static duplicate name checker for unit tests
+        import design
+        design.design.name_map=[]
+
+
 
 
 # instantiate a copy of the class to actually run the test

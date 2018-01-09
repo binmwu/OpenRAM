@@ -9,7 +9,7 @@ import sys,os
 sys.path.append(os.path.join(sys.path[0],".."))
 import globals
 import debug
-import calibre
+import verify
 
 OPTS = globals.OPTS
 
@@ -20,28 +20,16 @@ class pinv_test(unittest.TestCase):
 
     def runTest(self):
         globals.init_openram("config_20_{0}".format(OPTS.tech_name))
+        OPTS.check_lvsdrc = False
 
         import pinv
         import tech
 
-        # debug.info(2, "Checking min size inverter")
-        # OPTS.check_lvsdrc = False
-        # tx = pinv.pinv(nmos_width=tech.drc["minwidth_tx"], beta=tech.parameter["pinv_beta"])
-        # OPTS.check_lvsdrc = True
-        # self.local_check(tx)
-
-        # debug.info(2, "Checking 2x min size inverter")
-        # OPTS.check_lvsdrc = False
-        # tx = pinv.pinv(nmos_width=2 * tech.drc["minwidth_tx"], beta=tech.parameter["pinv_beta"])
-        # OPTS.check_lvsdrc = True
-        # self.local_check(tx)
-
-        debug.info(2, "Checking 5x min size inverter")
-        OPTS.check_lvsdrc = False
-        tx = pinv.pinv(nmos_width=5 * tech.drc["minwidth_tx"], beta=tech.parameter["pinv_beta"])
-        OPTS.check_lvsdrc = True
+        debug.info(2, "Checking 1x size inverter")
+        tx = pinv.pinv(size=1)
         self.local_check(tx)
 
+        OPTS.check_lvsdrc = True
         globals.end_openram()        
 
     def local_check(self, tx):
@@ -51,11 +39,15 @@ class pinv_test(unittest.TestCase):
         tx.sp_write(tempspice)
         tx.gds_write(tempgds)
 
-        self.assertFalse(calibre.run_drc(tx.name, tempgds))
-        self.assertFalse(calibre.run_lvs(tx.name, tempgds, tempspice))
+        self.assertFalse(verify.run_drc(tx.name, tempgds))
+        self.assertFalse(verify.run_lvs(tx.name, tempgds, tempspice))
 
         os.remove(tempspice)
         os.remove(tempgds)
+
+        # reset the static duplicate name checker for unit tests
+        import design
+        design.design.name_map=[]
 
 
 
